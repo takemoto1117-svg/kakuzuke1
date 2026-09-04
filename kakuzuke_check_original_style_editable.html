@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>格付けチェック・オリジナル操作盤</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:"Arial Black","Yu Gothic","Meiryo",sans-serif;background:#1d1209}
+body{color:#fff0c0}
+.top{
+  padding:8px 12px;background:#211208;border-bottom:2px solid #b88936;
+  display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap
+}
+.top b{font-size:20px}
+button{
+  border:1px solid #b78a35;background:linear-gradient(#fff3bc,#d8aa47);
+  color:#3b210b;border-radius:4px;padding:7px 12px;font-weight:bold;cursor:pointer
+}
+.stage{padding:12px;overflow:auto}
+.board{
+  min-width:1100px;max-width:1500px;margin:auto;padding:9px;
+  border:2px solid #e6c56b;
+  background:
+    repeating-linear-gradient(0deg,#7c5017 0 2px,#c18a2a 2px 4px,#805118 4px 6px);
+  box-shadow:0 0 0 4px #4b2d0d,0 0 25px #000;
+}
+.inner{
+  border:2px solid #4b2d0d;
+  background:linear-gradient(180deg,#efc75d,#dba83c 48%,#bd8428);
+}
+.grid{
+  display:grid;grid-template-columns:165px repeat(6,1fr);
+}
+.header{
+  height:78px;display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:3px;border-right:2px solid #8a5b16;border-bottom:3px solid #8a5b16;
+  color:#111;font-weight:900;font-size:22px;line-height:1.08;letter-spacing:-.04em;
+  text-shadow:0 1px #fff;
+}
+.corner{background:linear-gradient(#a66d19,#d29c35)}
+.rank1{background:#d6b04b;color:#111;text-shadow:1px 1px #f8e9a8}
+.rank2{background:#bfc0c2;color:#111;text-shadow:1px 1px #f3f3f3}
+.rank3{background:#1488bd;color:#fff;text-shadow:1px 1px #064768}
+.rank4{background:#f4f4f1;color:#111;text-shadow:1px 1px #fff}
+.rank5{background:#e97837;color:#111;text-shadow:1px 1px #ffc09a}
+.rank6{background:#080808;color:#fff;text-shadow:1px 1px #000}
+.edit{
+  width:95%;background:transparent;border:0;outline:0;text-align:center;
+  font:inherit;font-weight:900;color:inherit;padding:4px
+}
+.rowlabel{
+  min-height:72px;display:flex;align-items:center;justify-content:center;
+  border-right:2px solid #8a5b16;border-bottom:2px solid #8a5b16;
+  background:linear-gradient(90deg,#991e17,#c32b20,#971812);
+}
+.rowlabel input{
+  width:94%;background:transparent;color:#fff;border:0;outline:0;
+  text-align:center;font-size:19px;font-weight:900;letter-spacing:-.04em
+}
+.cell{
+  min-height:72px;padding:6px;display:flex;align-items:center;justify-content:center;
+  border-right:2px solid #a97421;border-bottom:2px solid #a97421;
+  background:
+    linear-gradient(rgba(255,238,169,.78),rgba(221,177,71,.65)),
+    repeating-linear-gradient(0deg,transparent 0 9px,#8e5d19 10px,#f1d277 11px);
+}
+.cell.over{background:#fff2a8;outline:4px dashed #b5231d;outline-offset:-5px}
+.card{
+  width:94%;min-height:53px;padding:7px 4px;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  background:linear-gradient(#df3a2b,#9f1711);color:#fff;
+  border:2px solid #6d100d;box-shadow:0 2px 4px #0009;
+  font-size:19px;font-weight:900;letter-spacing:-.04em;cursor:grab;user-select:none
+}
+.card:active{cursor:grabbing}
+.card.selected{outline:4px solid #fff2a0;outline-offset:2px}
+.help{
+  max-width:1500px;margin:10px auto 0;padding:10px 13px;
+  background:#fff5ce;color:#3e260d;border:2px solid #a8792b;border-radius:5px
+}
+.help b{color:#8d1610}
+.small{font-size:12px;opacity:.85}
+@media(max-width:900px){.board{min-width:900px}.header{font-size:17px}.rowlabel input{font-size:16px}}
+</style>
+</head>
+<body>
+<div class="top">
+  <b>格付けチェック 操作盤</b>
+  <div>
+    <button onclick="resetAll()">初期状態に戻す</button>
+    <button onclick="fullscreen()">全画面</button>
+  </div>
+</div>
+
+<div class="stage">
+<div class="board"><div class="inner">
+  <div class="grid" id="headers"></div>
+  <div id="rows"></div>
+</div></div>
+
+<div class="help">
+  <b>使い方</b>　
+  上段の6つの「格付け名」と左側の6つの「チーム名」は、文字をクリックして自由に変更できます。
+  赤い札はドラッグ＆ドロップで好きな格付けへ移動できます。
+  <br>
+  <span class="small">※札をクリックすると、移動先を番号で選ぶこともできます。変更内容は自動保存されます。</span>
+</div>
+</div>
+
+<script>
+const defaultRanks=["一流芸能人","普通芸能人","二流芸能人","三流芸能人","そっくりさん","映す価値なし"];
+const defaultTeams=["チームA","チームB","チームC","チームD","チームE","チームF"];
+let state={
+  ranks:[...defaultRanks],
+  teams:defaultTeams.map((name,i)=>({name,rank:i<6?0:0}))
+};
+
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem("kakuzukeOriginal"));
+    if(x && x.ranks && x.teams && x.ranks.length===6 && x.teams.length===6) state=x;
+  }catch(e){}
+}
+function save(){localStorage.setItem("kakuzukeOriginal",JSON.stringify(state))}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function render(){
+  const h=document.getElementById("headers");
+  h.innerHTML='<div class="header corner">格付け<br>チーム</div>';
+  state.ranks.forEach((r,i)=>{
+    const d=document.createElement("div");
+    d.className="header rank"+(i+1);
+    d.innerHTML='<input class="edit" value="'+esc(r)+'" aria-label="格付け名">';
+    d.querySelector("input").onchange=e=>{
+      state.ranks[i]=e.target.value||defaultRanks[i];save();
+    };
+    h.appendChild(d);
+  });
+
+  const rows=document.getElementById("rows");rows.innerHTML="";
+  state.teams.forEach((team,ti)=>{
+    const row=document.createElement("div");row.className="grid";
+    const label=document.createElement("div");label.className="rowlabel";
+    label.innerHTML='<input value="'+esc(team.name)+'" aria-label="チーム名">';
+    label.querySelector("input").onchange=e=>{
+      state.teams[ti].name=e.target.value||defaultTeams[ti];save();render();
+    };
+    row.appendChild(label);
+
+    for(let ri=0;ri<6;ri++){
+      const cell=document.createElement("div");cell.className="cell";
+      cell.addEventListener("dragover",e=>{e.preventDefault();cell.classList.add("over")});
+      cell.addEventListener("dragleave",()=>cell.classList.remove("over"));
+      cell.addEventListener("drop",e=>{
+        e.preventDefault();cell.classList.remove("over");
+        const from=Number(e.dataTransfer.getData("team"));
+        if(Number.isInteger(from)){state.teams[from].rank=ri;save();render()}
+      });
+
+      if(team.rank===ri){
+        const card=document.createElement("div");card.className="card";
+        card.textContent=team.name;card.draggable=true;
+        card.addEventListener("dragstart",e=>e.dataTransfer.setData("team",String(ti)));
+        card.addEventListener("click",()=>{
+          const ans=prompt(
+            "移動先を番号で入力してください\\n\\n"+
+            state.ranks.map((x,i)=>(i+1)+"："+x).join("\\n"),
+            String(team.rank+1)
+          );
+          const n=Number(ans);
+          if(n>=1&&n<=6){state.teams[ti].rank=n-1;save();render()}
+        });
+        cell.appendChild(card);
+      }
+      row.appendChild(cell);
+    }
+    rows.appendChild(row);
+  });
+}
+
+function resetAll(){
+  if(confirm("チーム名・格付け名・配置をすべて初期状態に戻しますか？")){
+    state={ranks:[...defaultRanks],teams:defaultTeams.map(name=>({name,rank:0}))};
+    save();render();
+  }
+}
+function fullscreen(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+load();render();
+</script>
+</body>
+</html>
