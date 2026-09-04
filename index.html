@@ -75,26 +75,13 @@ function fullscreen(){document.fullscreenElement?document.exitFullscreen():docum
 
 loadLocal();render();
 
-const firebaseConfig={
-  apiKey:"YOUR_API_KEY",
-  authDomain:"YOUR_PROJECT.firebaseapp.com",
-  databaseURL:"https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"YOUR_PROJECT",
-  storageBucket:"YOUR_PROJECT.firebasestorage.app",
-  messagingSenderId:"YOUR_SENDER_ID",
-  appId:"YOUR_APP_ID"
+const firebaseConfig = {
+  apiKey: "AIzaSyDAn8Um6TZO0AiVLhAhEkt9ll8YtpB1Vvw",
+  authDomain: "kakuzuke1-ce892.firebaseapp.com",
+  databaseURL: "https://kakuzuke1-ce892-default-rtdb.firebaseio.com",
+  projectId: "kakuzuke1-ce892",
+  storageBucket: "kakuzuke1-ce892.firebasestorage.app",
+  messagingSenderId: "356998921410",
+  appId: "1:356998921410:web:0304ff77d064a75eed4f5b",
+  measurementId: "G-9K5S6ZH0WK"
 };
-
-if(firebaseConfig.apiKey!=="YOUR_API_KEY"){
- try{
-  const app=initializeApp(firebaseConfig),db=getDatabase(app),boardRef=ref(db,"kakuzuke/board");
-  window.cloudSet=(x)=>set(boardRef,x);
-  onValue(boardRef,s=>{const x=s.val();if(x?.ranks?.length===6&&x?.teams?.length===6){state=x;saveLocal();render()}document.getElementById("status").textContent="● リアルタイム接続中";document.getElementById("status").className="status online"});
- }catch(e){document.getElementById("status").textContent="● ローカルモード";document.getElementById("status").className="status offline"}
-}else{
- document.getElementById("status").textContent="● ローカルモード（Firebase未設定）";
- document.getElementById("status").className="status offline";
-}
-</script>
-</body>
-</html>
