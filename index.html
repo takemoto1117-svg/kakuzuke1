@@ -36,78 +36,527 @@ body.viewer .adminOnly{display:none!important}.viewer .header .edit{pointer-even
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-const defaultRanks=["一流芸能人","普通芸能人","二流芸能人","三流芸能人","そっくりさん","映す価値なし"];
-const defaultTeams=["チームA","チームB","チームC","チームD","チームE","チームF"];
-const localKey="kakuzukeLocal";
-let state={ranks:[...defaultRanks],teams:defaultTeams.map(name=>({name,rank:0}))};
-const viewer=new URLSearchParams(location.search).get("view")==="1";
-if(viewer) document.body.classList.add("viewer");
-document.getElementById("mode").textContent=viewer?"　【表示モード】":"　【管理モード】";
+const defaultRanks = [
+  "一流芸能人",
+  "普通芸能人",
+  "二流芸能人",
+  "三流芸能人",
+  "そっくりさん",
+  "映す価値なし"
+];
 
-function loadLocal(){try{const x=JSON.parse(localStorage.getItem(localKey));if(x?.ranks?.length===6&&x?.teams?.length===6)state=x}catch(e){}}
-function saveLocal(){localStorage.setItem(localKey,JSON.stringify(state))}
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+const defaultTeams = [
+  "チームA",
+  "チームB",
+  "チームC",
+  "チームD",
+  "チームE",
+  "チームF"
+];
 
-function render(){
- const h=document.getElementById("headers");h.innerHTML='<div class="header corner">格付け<br>チーム</div>';
- state.ranks.forEach((r,i)=>{const d=document.createElement("div");d.className="header rank"+(i+1);d.innerHTML='<input class="edit" value="'+esc(r)+'">';const inp=d.querySelector("input");inp.disabled=viewer;inp.onchange=()=>{state.ranks[i]=inp.value||defaultRanks[i];persist()};h.appendChild(d)});
- const rows=document.getElementById("rows");rows.innerHTML="";
- state.teams.forEach((team,ti)=>{
-  const row=document.createElement("div");row.className="grid";const label=document.createElement("div");label.className="rowlabel";label.innerHTML='<input value="'+esc(team.name)+'">';
-  const inp=label.querySelector("input");inp.disabled=viewer;inp.onchange=()=>{state.teams[ti].name=inp.value||defaultTeams[ti];persist();render()};row.appendChild(label);
-  for(let ri=0;ri<6;ri++){
-   const cell=document.createElement("div");cell.className="cell";
-   if(!viewer){
-    cell.ondragover=e=>{e.preventDefault();cell.classList.add("over")};cell.ondragleave=()=>cell.classList.remove("over");
-    cell.ondrop=e=>{e.preventDefault();cell.classList.remove("over");const from=+e.dataTransfer.getData("team");if(Number.isInteger(from)){state.teams[from].rank=ri;persist();render()}};
-   }
-   if(team.rank===ri){const card=document.createElement("div");card.className="card";card.textContent=team.name;card.draggable=!viewer;
-    if(!viewer){card.ondragstart=e=>e.dataTransfer.setData("team",String(ti));card.onclick=()=>{const a=prompt("移動先（1～6）\\n"+state.ranks.map((x,i)=>(i+1)+"："+x).join("\\n"),String(team.rank+1));const n=+a;if(n>=1&&n<=6){state.teams[ti].rank=n-1;persist();render()}}}
-    cell.appendChild(card)}
-   row.appendChild(cell)
-  } rows.appendChild(row)
- });
+const localKey = "kakuzukeLocal";
+
+let state = {
+  ranks: [...defaultRanks],
+  teams: defaultTeams.map(name => ({
+    name: name,
+    rank: 0
+  }))
+};
+
+const viewer = new URLSearchParams(location.search).get("view") === "1";
+
+if (viewer) {
+  document.body.classList.add("viewer");
 }
 
-function persist(){saveLocal();if(window.cloudSet)window.cloudSet(state)}
-function resetAll(){if(confirm("すべて初期状態に戻しますか？")){state={ranks:[...defaultRanks],teams:defaultTeams.map(name=>({name,rank:0}))};persist();render()}}
-function fullscreen(){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.()}
+document.getElementById("mode").textContent =
+  viewer ? "　【表示モード】" : "　【管理モード】";
 
-loadLocal();render();
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDAn8Um6TZO0AiVLhAhEkt9ll8YtpB1Vvw",
-  authDomain: "kakuzuke1-ce892.firebaseapp.com",
-  databaseURL: "https://kakuzuke1-ce892-default-rtdb.firebaseio.com",
-  projectId: "kakuzuke1-ce892",
-  storageBucket: "kakuzuke1-ce892.firebasestorage.app",
-  messagingSenderId: "356998921410",
-  appId: "1:356998921410:web:0304ff77d064a75eed4f5b",
-  measurementId: "G-9K5S6ZH0WK"
-};
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const boardRef = ref(db, "kakuzuke/board");
+/* =========================
+   ローカル保存
+========================= */
 
-window.cloudSet = (data) => {
-  set(boardRef, data).catch((error) => {
-    console.error("Firebase保存エラー:", error);
+function loadLocal() {
+  try {
+    const x = JSON.parse(localStorage.getItem(localKey));
+
+    if (
+      x &&
+      Array.isArray(x.ranks) &&
+      x.ranks.length === 6 &&
+      Array.isArray(x.teams) &&
+      x.teams.length === 6
+    ) {
+      state = x;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function saveLocal() {
+  localStorage.setItem(localKey, JSON.stringify(state));
+}
+
+
+/* =========================
+   HTMLエスケープ
+========================= */
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[m]));
+}
+
+
+/* =========================
+   画面描画
+========================= */
+
+function render() {
+
+  const h = document.getElementById("headers");
+
+  h.innerHTML =
+    '<div class="header corner">格付け<br>チーム</div>';
+
+  state.ranks.forEach((r, i) => {
+
+    const d = document.createElement("div");
+
+    d.className = "header rank" + (i + 1);
+
+    d.innerHTML =
+      '<input class="edit" value="' + esc(r) + '">';
+
+    const inp = d.querySelector("input");
+
+    inp.disabled = viewer;
+
+    inp.onchange = () => {
+
+      state.ranks[i] =
+        inp.value || defaultRanks[i];
+
+      persist();
+
+    };
+
+    h.appendChild(d);
   });
-};
 
-onValue(boardRef, (snapshot) => {
-  const data = snapshot.val();
 
-  if (data && data.ranks && data.teams) {
-    state = data;
-    saveLocal();
-    render();
+  const rows = document.getElementById("rows");
+
+  rows.innerHTML = "";
+
+
+  state.teams.forEach((team, ti) => {
+
+    const row = document.createElement("div");
+
+    row.className = "grid";
+
+
+    /* チーム名 */
+
+    const label = document.createElement("div");
+
+    label.className = "rowlabel";
+
+    label.innerHTML =
+      '<input value="' + esc(team.name) + '">';
+
+    const inp = label.querySelector("input");
+
+    inp.disabled = viewer;
+
+    inp.onchange = () => {
+
+      state.teams[ti].name =
+        inp.value || defaultTeams[ti];
+
+      persist();
+      render();
+
+    };
+
+    row.appendChild(label);
+
+
+    /* 6段階の格付け */
+
+    for (let ri = 0; ri < 6; ri++) {
+
+      const cell = document.createElement("div");
+
+      cell.className = "cell";
+
+
+      if (!viewer) {
+
+        cell.ondragover = e => {
+
+          e.preventDefault();
+
+          cell.classList.add("over");
+
+        };
+
+
+        cell.ondragleave = () => {
+
+          cell.classList.remove("over");
+
+        };
+
+
+        cell.ondrop = e => {
+
+          e.preventDefault();
+
+          cell.classList.remove("over");
+
+          const from =
+            Number(e.dataTransfer.getData("team"));
+
+          if (
+            Number.isInteger(from) &&
+            from >= 0 &&
+            from < state.teams.length
+          ) {
+
+            state.teams[from].rank = ri;
+
+            persist();
+            render();
+
+          }
+
+        };
+
+      }
+
+
+      /* チームカード */
+
+      if (team.rank === ri) {
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.textContent = team.name;
+
+        card.draggable = !viewer;
+
+
+        if (!viewer) {
+
+          card.ondragstart = e => {
+
+            e.dataTransfer.setData(
+              "team",
+              String(ti)
+            );
+
+          };
+
+
+          card.onclick = () => {
+
+            const a = prompt(
+              "移動先（1～6）\n\n" +
+              state.ranks
+                .map((x, i) =>
+                  (i + 1) + "：" + x
+                )
+                .join("\n"),
+
+              String(team.rank + 1)
+            );
+
+            const n = Number(a);
+
+            if (n >= 1 && n <= 6) {
+
+              state.teams[ti].rank = n - 1;
+
+              persist();
+              render();
+
+            }
+
+          };
+
+        }
+
+        cell.appendChild(card);
+
+      }
+
+      row.appendChild(cell);
+
+    }
+
+    rows.appendChild(row);
+
+  });
+
+}
+
+
+/* =========================
+   保存
+========================= */
+
+function persist() {
+
+  saveLocal();
+
+  if (window.cloudSet) {
+
+    window.cloudSet(state);
+
   }
 
-  document.getElementById("status").textContent = "リアルタイム接続中";
-  document.getElementById("status").className = "status online";
-}, (error) => {
-  console.error("Firebase接続エラー:", error);
-  document.getElementById("status").textContent = "接続エラー";
-  document.getElementById("status").className = "status offline";
-});
+}
+
+
+/* =========================
+   初期状態に戻す
+========================= */
+
+function resetAll() {
+
+  if (
+    confirm(
+      "すべて初期状態に戻しますか？"
+    )
+  ) {
+
+    state = {
+
+      ranks: [...defaultRanks],
+
+      teams: defaultTeams.map(name => ({
+        name: name,
+        rank: 0
+      }))
+
+    };
+
+    persist();
+    render();
+
+  }
+
+}
+
+
+/* =========================
+   全画面
+========================= */
+
+function fullscreen() {
+
+  if (document.fullscreenElement) {
+
+    document.exitFullscreen();
+
+  } else {
+
+    document.documentElement.requestFullscreen?.();
+
+  }
+
+}
+
+
+/* =========================
+   Firebase設定
+========================= */
+
+const firebaseConfig = {
+
+  apiKey:
+    "AIzaSyDAn8Um6TZO0AiVLhAhEkt9ll8YtpB1Vvw",
+
+  authDomain:
+    "kakuzuke1-ce892.firebaseapp.com",
+
+  databaseURL:
+    "https://kakuzuke1-ce892-default-rtdb.firebaseio.com",
+
+  projectId:
+    "kakuzuke1-ce892",
+
+  storageBucket:
+    "kakuzuke1-ce892.firebasestorage.app",
+
+  messagingSenderId:
+    "356998921410",
+
+  appId:
+    "1:356998921410:web:0304ff77d064a75eed4f5b",
+
+  measurementId:
+    "G-9K5S6ZH0WK"
+
+};
+
+
+/* =========================
+   Firebase開始
+========================= */
+
+let app;
+let db;
+let boardRef;
+
+try {
+
+  app = initializeApp(firebaseConfig);
+
+  db = getDatabase(app);
+
+  boardRef = ref(
+    db,
+    "kakuzuke/board"
+  );
+
+
+  /* Firebaseへ保存 */
+
+  window.cloudSet = data => {
+
+    set(boardRef, data)
+      .catch(error => {
+
+        console.error(
+          "Firebase保存エラー:",
+          error
+        );
+
+        document.getElementById("status").textContent =
+          "保存エラー";
+
+        document.getElementById("status").className =
+          "status offline";
+
+      });
+
+  };
+
+
+  /* Firebaseからリアルタイム取得 */
+
+  onValue(
+
+    boardRef,
+
+    snapshot => {
+
+      const data = snapshot.val();
+
+
+      if (
+        data &&
+        Array.isArray(data.ranks) &&
+        Array.isArray(data.teams) &&
+        data.ranks.length === 6 &&
+        data.teams.length === 6
+      ) {
+
+        /* Firebaseのデータを使用 */
+
+        state = data;
+
+        saveLocal();
+        render();
+
+      } else {
+
+        /*
+          Firebaseが空なら
+          初期状態を書き込む
+        */
+
+        set(boardRef, state)
+          .then(() => {
+
+            console.log(
+              "Firebaseに初期状態を保存しました"
+            );
+
+          })
+          .catch(error => {
+
+            console.error(
+              "初期データ保存エラー:",
+              error
+            );
+
+          });
+
+      }
+
+
+      document.getElementById("status").textContent =
+        "リアルタイム接続中";
+
+      document.getElementById("status").className =
+        "status online";
+
+    },
+
+
+    error => {
+
+      console.error(
+        "Firebase接続エラー:",
+        error
+      );
+
+      document.getElementById("status").textContent =
+        "接続エラー";
+
+      document.getElementById("status").className =
+        "status offline";
+
+    }
+
+  );
+
+
+} catch (error) {
+
+  console.error(
+    "Firebase初期化エラー:",
+    error
+  );
+
+  document.getElementById("status").textContent =
+    "Firebaseエラー";
+
+  document.getElementById("status").className =
+    "status offline";
+
+}
+
+
+/* =========================
+   初回表示
+========================= */
+
+loadLocal();
+render();
+
+</script>
