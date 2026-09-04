@@ -214,14 +214,20 @@ button:hover {
 
   background: #d6b04b;
 
-  color: #d4af37;
+  background-image: linear-gradient(
+    #fff3a0,
+    #ffd700 35%,
+    #c98a00 70%,
+    #fff0a0
+  );
+
+  color: transparent;
+
+  -webkit-background-clip: text;
+  background-clip: text;
 
   text-shadow:
-    -1px -1px 0 #5a3a00,
-     1px -1px 0 #5a3a00,
-    -1px  1px 0 #5a3a00,
-     1px  1px 0 #5a3a00,
-     0 2px 3px #000;
+    1px 1px 2px #5a3a00;
 }
 
 .rank2 {
