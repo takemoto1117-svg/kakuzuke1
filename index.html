@@ -85,3 +85,29 @@ const firebaseConfig = {
   appId: "1:356998921410:web:0304ff77d064a75eed4f5b",
   measurementId: "G-9K5S6ZH0WK"
 };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const boardRef = ref(db, "kakuzuke/board");
+
+window.cloudSet = (data) => {
+  set(boardRef, data).catch((error) => {
+    console.error("Firebase保存エラー:", error);
+  });
+};
+
+onValue(boardRef, (snapshot) => {
+  const data = snapshot.val();
+
+  if (data && data.ranks && data.teams) {
+    state = data;
+    saveLocal();
+    render();
+  }
+
+  document.getElementById("status").textContent = "リアルタイム接続中";
+  document.getElementById("status").className = "status online";
+}, (error) => {
+  console.error("Firebase接続エラー:", error);
+  document.getElementById("status").textContent = "接続エラー";
+  document.getElementById("status").className = "status offline";
+});
